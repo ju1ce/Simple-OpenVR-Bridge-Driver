@@ -6,9 +6,24 @@ For hip locomotion information and instructions, go to the [Hip Locomotion](http
 
 This is my fork if simple OpenVR driver tutorial, which is made to be used as a bridge between any program and SteamVR. If you have any tracking system that you wish to use as SteamVR trackers, this is probably a good place to start.
 
-This driver opens a named pipe, on which it listens for commands. This enables an easy way to create and move trackers in SteamVR by simply connecting to a named pipe and sending messages to it. A c++ example is included, but it should be possible to use in any language. To use on linux, windows API for named pipes would have to be replaced with the linux one.
+This driver opens a named pipe, on which it listens for commands. This enables an easy way to create and move trackers in SteamVR by simply connecting to a named pipe and sending messages to it. A c++ example is included, but it should be possible to use in any language. The driver has both a windows and a linux version.
 
-The main project for which i use this driver is ApriltagTrackes, which is why the trackers are named as such in the driver. If you have any questions or want to use this driver, feel free to join the ApriltagsTrackers discord and write in the dev-talk channel, link on its github page.
+For an example in python, you can check the mediapipepose project that uses this same driver to forward positions from googles MediaPipe pose estimator to SteamVR. What you want to use is the SendToSteamVR() function [here](https://github.com/ju1ce/Mediapipe-VR-Fullbody-Tracking/blob/main/bin/helpers.py#L297). To see an example of it being used, check the code [here](https://github.com/ju1ce/Mediapipe-VR-Fullbody-Tracking/blob/main/bin/mediapipepose.py).
+
+A quick overview of the commands you want to send:
+
+- ```numtrackers``` : the driver will return the number of trackers currently connected. Used to check how many trackers you need to connect and how many are already connected
+- ```addtracker 'name' 'role'``` : add another tracker with the name and role. Only needs to be done on first connect to prevent duplicates.
+- ```updatepos 'id' 'x' 'y' 'z' 'qw' 'qx' 'qy' 'qz' 'delay'``` : update pose of tracker with id to position x y z and rotation quaternion qw qx qy qz. You can also send how old the pose is, but you can also just send 0.
+
+Some other commands you may find useful:
+- ```getdevicepose 'id'``` : useful to get position of HMD, which is id 0. You should be able to get positions of controllers, but is very unreliable so other methods are prefered
+- ```synctime``` : returns avarage frametime and time since last frame, useful if you need to sync something to the HMD refresh rate
+- ```settings 'numOfValues' 'smoothingWindow' 'additionalSmoothing'``` : update the drivers smoothing and interpolation settings.
+
+To see how the smoothing and delay values affect tracking, you can check the graphs [here](https://github.com/ju1ce/April-Tag-VR-FullBody-Tracker/wiki/Refining-parameters).
+
+The main project for which I use this driver is ApriltagTrackes, which is why the trackers are named as such in the driver. If you have any questions or want to use this driver, feel free to join the ApriltagsTrackers discord and write in the dev-talk channel, link on its github page.
 
 Bellow is the original Readme. Most of the installation should stay the same.
 
