@@ -125,6 +125,7 @@ I don't have an issue template, but if you find what you think is a bug, and can
 MIT License
 
 Copyright (c) 2022 https://github.com/ju1ce/
+
 Copyright (c) 2020 Jacob Hilton (Terminal29)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
