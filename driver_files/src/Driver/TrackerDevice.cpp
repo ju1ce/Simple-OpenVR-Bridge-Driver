@@ -217,6 +217,60 @@ int ExampleDriver::TrackerDevice::get_next_pose(double time_offset, double pred[
 
     //printf("avg time %f\n", avg_time);
 
+#if 1
+    /* Implementing Simple Linear regression without intercept term as in here:
+     * https://en.wikipedia.org/wiki/Simple_linear_regression#Simple_linear_regression_without_the_intercept_term_(single_regressor)
+     *
+     * Line is forced to pass thru the average of the last few data points, for faster response time.
+     */
+    double var = avg_time2 - avg_time * avg_time;
+
+    for (int i = 1; i < 8; i++)
+    {
+        double avg_val = 0;
+        double avg_tval = 0;
+        for (int ii = 0; ii < curr_saved; ii++)
+        {
+            avg_val += prev_positions[ii][i];
+            avg_tval += (prev_positions[ii][0] * prev_positions[ii][i]);
+        }
+        avg_val /= curr_saved;
+        avg_tval /= curr_saved;
+
+        double cov = avg_tval - avg_val * avg_time;
+
+        double h = (prev_positions[0][0] + prev_positions[1][0] + prev_positions[2][0] + prev_positions[3][0]) / 4;
+        double k = (prev_positions[0][i] + prev_positions[1][i] + prev_positions[2][i] + prev_positions[3][i]) / 4;
+        double y = k;
+
+        //        if (i == 1)
+        //            Log(">* "
+        //                + std::to_string(avg_time) + " "
+        //                + std::to_string(avg_time2) + " "
+        //                + std::to_string(var) + " "
+        //                + std::to_string(h) + " "
+        //                + std::to_string(k) + " "
+        //                + std::to_string(var + (avg_time - h)*(avg_time - h)));
+
+        if (fabs( var + (avg_time - h)*(avg_time - h)) > 0.0001) {
+            double b = (cov + (avg_time - h) * (avg_val - k)) / ( var + (avg_time - h)*(avg_time - h));
+            double a = k - b * h;
+
+            y = a + b * new_time;
+
+            //            if (i == 1)
+            //                Log(">+ "
+            //                    + std::to_string(y) + " "
+            //                    + std::to_string(a) + " "
+            //                    + std::to_string(b) + " "
+            //                    + std::to_string(new_time));
+
+        }
+
+
+        pred[i - 1] = y;
+    }
+#else
     double st = 0;
     for (int j = 0; j < curr_saved; j++)
     {
@@ -267,6 +321,7 @@ int ExampleDriver::TrackerDevice::get_next_pose(double time_offset, double pred[
 
 
     }
+#endif
     //printf("::: %f\n", pred[0]);
     return statuscode;
     //return pred[0], pred[1], pred[2], pred[3], pred[4], pred[5], pred[6];
