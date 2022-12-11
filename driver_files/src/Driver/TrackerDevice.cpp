@@ -16,10 +16,13 @@ static void normalizeQuat(ExampleDriver::TrackerDevice::PoseInfo& pose)
     pose[6] /= mag;
 }
 
-ExampleDriver::TrackerDevice::TrackerDevice(std::string serial, std::string role):
+ExampleDriver::TrackerDevice::TrackerDevice(std::string serial, std::string role) :
     serial_(serial),
     role_(role)
 {
+    const auto now = std::chrono::system_clock::now();
+    _pose_timestamp = now;
+    last_update = now;
 }
 
 std::string ExampleDriver::TrackerDevice::GetSerial()
@@ -55,20 +58,18 @@ void ExampleDriver::TrackerDevice::Update()
     auto pose = this->last_pose_;
 
     // Update time delta (for working out velocity)
-    std::chrono::milliseconds time_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch());
-    double time_since_epoch_seconds = time_since_epoch.count() / 1000.0;
-    double pose_time_delta_seconds = (time_since_epoch - _pose_timestamp).count() / 1000.0;
+    const auto time_now = std::chrono::system_clock::now();
+    const double pose_time_delta_seconds = std::chrono::duration_cast<Seconds>(time_now - _pose_timestamp).count();
 
     // Update pose timestamp
-
-    _pose_timestamp = time_since_epoch;
+    _pose_timestamp = time_now;
 
     // Copy the previous position data
     double previous_position[3] = { 0 };
     std::copy(std::begin(pose.vecPosition), std::end(pose.vecPosition), std::begin(previous_position));
 
     PoseInfo next_pose;
-    if (get_next_pose(0, next_pose) != 0)
+    if (get_next_pose(Seconds(0), next_pose) != 0)
         return;
 
     normalizeQuat(next_pose);
@@ -135,16 +136,13 @@ void ExampleDriver::TrackerDevice::Log(std::string message)
     vr::VRDriverLog()->Log(message_endl.c_str());
 }
 
-int ExampleDriver::TrackerDevice::get_next_pose(double time_offset, PoseInfo& next_pose) const
+int ExampleDriver::TrackerDevice::get_next_pose(Seconds time_offset, PoseInfo& next_pose) const
 {
     int statuscode = 0;
 
-    std::chrono::milliseconds time_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch());
-    double time_since_epoch_seconds = time_since_epoch.count() / 1000.0;
-
-    double req_time = time_since_epoch_seconds - time_offset;
-
-    double new_time = last_update - req_time;
+    const auto time_now = std::chrono::system_clock::now();
+    const auto req_time = time_now - time_offset;
+    double new_time = std::chrono::duration_cast<Seconds>(last_update - req_time).count();
 
     if (new_time < -0.2)      //limit prediction to max 0.2 second into the future to prevent your feet from being yeeted into oblivion
     {
@@ -242,7 +240,7 @@ int ExampleDriver::TrackerDevice::get_next_pose(double time_offset, PoseInfo& ne
     //return pred[0], pred[1], pred[2], pred[3], pred[4], pred[5], pred[6];
 }
 
-void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double c, double w, double x, double y, double z, double time_offset)
+void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double c, double w, double x, double y, double z, Seconds time_offset)
 {
     PoseInfo next_pose;
     int pose_valid = get_next_pose(time_offset, next_pose);
@@ -259,12 +257,9 @@ void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double 
 
     if (max_time == 0)
     {
-        std::chrono::milliseconds time_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch());
-        double time_since_epoch_seconds = time_since_epoch.count() / 1000.0;
-        double curr_time = time_since_epoch_seconds;
-        this->last_update = curr_time;
+        this->last_update = std::chrono::system_clock::now();
         PrevPose& prev_pose = prev_positions.front();
-        prev_pose.time = time_offset;
+        prev_pose.time = time_offset.count();
         prev_pose.pose[0] = a;
         prev_pose.pose[1] = b;
         prev_pose.pose[2] = c;
@@ -277,15 +272,9 @@ void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double 
     }
 
     //update times
-    std::chrono::milliseconds time_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch());
-    double time_since_epoch_seconds = time_since_epoch.count() / 1000.0;
-
-    //Log("time since epoch: " + std::to_string(time_since_epoch_seconds));
-    //lock_t curr_time = clock();
-    //clock_t capture_time = curr_time - (timeOffset*1000);
-    double curr_time = time_since_epoch_seconds;
-    double time_since_update = curr_time - this->last_update;
-    this->last_update = curr_time;
+    const auto time_now = std::chrono::system_clock::now();
+    const double time_since_update = std::chrono::duration_cast<Seconds>(time_now - this->last_update).count();
+    this->last_update = time_now;
 
     for (PrevPose& prev_pose : prev_positions)
     {
@@ -296,7 +285,7 @@ void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double 
             prev_time = -1;
     }
 
-    double time = time_offset;
+    double time = time_offset.count();
     // double offset = (rand() % 100) / 10000.;
     // time += offset;
     // printf("%f %f\n", time, offset);

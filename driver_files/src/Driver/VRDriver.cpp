@@ -156,7 +156,7 @@ void ExampleDriver::VRDriver::PipeThread()
                     {
                         if(time < 0)
                             time = -time;
-                        this->trackers_[idx]->save_current_pose(a, b, c, qw, qx, qy, qz, time);
+                        this->trackers_[idx]->save_current_pose(a, b, c, qw, qx, qy, qz, TrackerDevice::Seconds(time));
                         //this->trackers_[idx]->UpdatePos(a, b, c, time, 1-smoothing);
                         //this->trackers_[idx]->UpdateRot(qw, qx, qy, qz, time, 1-smoothing);
 
@@ -238,7 +238,7 @@ void ExampleDriver::VRDriver::PipeThread()
                         s = s + " trackerpose " + std::to_string(idx);
 
                         TrackerDevice::PoseInfo pose;
-                        int statuscode = this->trackers_[idx]->get_next_pose(time_offset, pose);
+                        int statuscode = this->trackers_[idx]->get_next_pose(TrackerDevice::Seconds(time_offset), pose);
 
                         s = s + " " + std::to_string(pose[0]) +
                             " " + std::to_string(pose[1]) +
