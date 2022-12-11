@@ -20,7 +20,18 @@ namespace Ipc {
 
     Connection::~Connection()
     {
-        DisconnectNamedPipe(inPipe);
+        if (inPipe != INVALID_HANDLE_VALUE) {
+            DisconnectNamedPipe(inPipe);
+        }
+    }
+
+    Connection::Connection(Connection &&other) noexcept : inPipe(INVALID_HANDLE_VALUE) {
+        operator=(std::move(other));
+    }
+
+    Connection& Connection::operator=(Connection &&other) noexcept {
+        std::swap(inPipe, other.inPipe);
+        return *this;
     }
 
     bool Connection::send(const char *buffer, size_t length)
@@ -167,7 +178,18 @@ namespace Ipc {
 
     Connection::~Connection()
     {
-        ::close(connfd);
+        if (connfd != -1) {
+            ::close(connfd);
+        }
+    }
+
+    Connection::Connection(Connection&& other) noexcept : connfd(-1) {
+        operator=(std::move(other));
+    }
+
+    Connection& Connection::operator=(Connection&& other) noexcept {
+        std::swap(connfd, other.connfd);
+        return *this;
     }
 
     bool Connection::send(const char *buf, size_t len)
@@ -252,6 +274,8 @@ namespace Ipc {
 
     Connection::Connection() { }
     Connection::~Connection() { }
+    Connection::Connection(Connection&&) noexcept = default;
+    Connection& Connection::operator=(Connection&&) noexcept = default;
     bool Connection::send(const char *buf, size_t len)
     {
         return false;
