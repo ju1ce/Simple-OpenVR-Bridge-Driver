@@ -151,7 +151,6 @@ int ExampleDriver::TrackerDevice::get_next_pose(Seconds time_offset, PoseInfo& n
     }
 
     int curr_saved = 0;
-    //double pred[7] = {0};
 
     double avg_time = 0;
     double avg_time2 = 0;
@@ -164,80 +163,40 @@ int ExampleDriver::TrackerDevice::get_next_pose(Seconds time_offset, PoseInfo& n
         avg_time2 += (prev_positions[i].time * prev_positions[i].time);
     }
 
-    //Log("saved values: " + std::to_string(curr_saved));
-
-    //printf("curr saved %d\n", curr_saved);
-    if (curr_saved < 4)
+    if (curr_saved == 0)
     {
-        if (curr_saved > 0)
-        {
-            next_pose = prev_positions.front().pose;
-            return statuscode;
-        }
-        //printf("Too few values");
-        statuscode = -1;
-        return statuscode;
-        //return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0;
+        return -1;
     }
+    else if (curr_saved < 4)
+    {
+        next_pose = prev_positions.front().pose;
+        return statuscode;
+    }
+
     avg_time /= curr_saved;
     avg_time2 /= curr_saved;
-
-    //printf("avg time %f\n", avg_time);
-
-    double st = 0;
-    for (int j = 0; j < curr_saved; j++)
-    {
-        st += ((prev_positions[j].time - avg_time) * (prev_positions[j].time - avg_time));
-    }
-    st = sqrt(st * (1.0 / curr_saved));
-
+    const double st = std::sqrt(avg_time2 - avg_time * avg_time);
 
     for (int i = 0; i < next_pose.size(); i++)
     {
         double avg_val = 0;
-        double avg_val2 = 0;
         double avg_tval = 0;
         for (int ii = 0; ii < curr_saved; ii++)
         {
             const PrevPose& prev_pose = prev_positions[ii];
             avg_val += prev_pose.pose[i];
             avg_tval += (prev_pose.time * prev_pose.pose[i]);
-            avg_val2 += (prev_pose.pose[i] * prev_pose.pose[i]);
         }
         avg_val /= curr_saved;
         avg_tval /= curr_saved;
-        avg_val2 /= curr_saved;
 
-        //printf("--avg: %f\n", avg_val);
-
-        double sv = 0;
-        for (int j = 0; j < curr_saved; j++)
-        {
-            sv += ((prev_positions[j].pose[i] - avg_val) * (prev_positions[j].pose[i] - avg_val));
-        }
-        sv = sqrt(sv * (1.0 / curr_saved));
-
-        //printf("----sv: %f\n", sv);
-
-        double rxy = (avg_tval - (avg_val * avg_time)) / sqrt((avg_time2 - (avg_time * avg_time)) * (avg_val2 - (avg_val * avg_val)));
-        double b = rxy * (sv / st);
-        double a = avg_val - (b * avg_time);
-
-        //printf("a: %f, b: %f\n", a, b);
-
-        double y = a + b * new_time;
-        //Log("aha: " + std::to_string(y) + std::to_string(avg_val));
-        if (abs(avg_val2 - (avg_val * avg_val)) < 0.00000001)               //bloody floating point rounding errors
-            y = avg_val;
+        const double m = (avg_tval - (avg_val * avg_time)) / (st * st);
+        const double y = avg_val + m * (new_time - avg_time);
 
         next_pose[i] = y;
-        //printf("<<<< %f --> %f\n",y, pred[i-1]);
-
-
     }
-    //printf("::: %f\n", pred[0]);
+
     return statuscode;
-    //return pred[0], pred[1], pred[2], pred[3], pred[4], pred[5], pred[6];
 }
 
 void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double c, double w, double x, double y, double z, Seconds time_offset)
