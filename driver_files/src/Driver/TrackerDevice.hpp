@@ -42,7 +42,7 @@ namespace ExampleDriver {
 
             void reinit(int msaved, double mtime, double msmooth);
             void save_current_pose(double a, double b, double c, double qw, double qx, double qy, double qz, Seconds time_offset);
-            int get_next_pose(Seconds time_offset, PoseInfo& pred) const;
+            int get_next_pose(Seconds time_offset, PoseInfo& next_pose, PoseInfo* pose_rate = nullptr) const;
 
     private:
         vr::TrackedDeviceIndex_t device_index_ = vr::k_unTrackedDeviceIndexInvalid;

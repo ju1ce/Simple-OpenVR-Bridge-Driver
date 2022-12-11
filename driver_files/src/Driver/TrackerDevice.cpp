@@ -69,8 +69,8 @@ void ExampleDriver::TrackerDevice::Update()
     double previous_position[3] = { 0 };
     std::copy(std::begin(pose.vecPosition), std::end(pose.vecPosition), std::begin(previous_position));
 
-    PoseInfo next_pose;
-    if (get_next_pose(Seconds(0), next_pose) != 0)
+    PoseInfo next_pose, pose_rate;
+    if (get_next_pose(Seconds(0), next_pose, &pose_rate) != 0)
         return;
 
     normalizeQuat(next_pose);
@@ -118,6 +118,10 @@ void ExampleDriver::TrackerDevice::Update()
 
     pose.poseTimeOffset = 0;
 
+    pose.vecVelocity[0] = pose_rate[0];
+    pose.vecVelocity[1] = pose_rate[1];
+    pose.vecVelocity[2] = pose_rate[2];
+
     //pose.vecVelocity[0] = (pose.vecPosition[0] - previous_position[0]) / pose_time_delta_seconds;
     //pose.vecVelocity[1] = (pose.vecPosition[1] - previous_position[1]) / pose_time_delta_seconds;
     //pose.vecVelocity[2] = (pose.vecPosition[2] - previous_position[2]) / pose_time_delta_seconds;
@@ -133,11 +137,15 @@ void ExampleDriver::TrackerDevice::Log(std::string message)
     vr::VRDriverLog()->Log(message_endl.c_str());
 }
 
-int ExampleDriver::TrackerDevice::get_next_pose(Seconds time_offset, PoseInfo& next_pose) const
+int ExampleDriver::TrackerDevice::get_next_pose(Seconds time_offset, PoseInfo& next_pose, PoseInfo* pose_rate_) const
 {
     std::lock_guard guard(pose_mutex);
 
     int statuscode = 0;
+
+    PoseInfo dummy_rate;
+    PoseInfo& pose_rate = pose_rate_ ? *pose_rate_ : dummy_rate;
+    pose_rate.fill(0);
 
     const auto time_now = std::chrono::system_clock::now();
     const auto req_time = time_now - time_offset;
@@ -193,6 +201,7 @@ int ExampleDriver::TrackerDevice::get_next_pose(Seconds time_offset, PoseInfo& n
         const double y = avg_val + m * (new_time - avg_time);
 
         next_pose[i] = y;
+        pose_rate[i] = -m; // -ve since |new_time| and |PrevPose::time| increase into the past
     }
 
     return statuscode;
