@@ -57,7 +57,6 @@ namespace ExampleDriver {
             PoseInfo pose;
         };
 
-        int max_saved = 10;
         std::vector<PrevPose> prev_positions; // koliko cajta nazaj se je naredl, torej min-->max
         std::chrono::system_clock::time_point last_update;
         double max_time = 1;

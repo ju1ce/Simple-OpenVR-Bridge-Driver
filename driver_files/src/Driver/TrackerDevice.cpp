@@ -40,9 +40,8 @@ void ExampleDriver::TrackerDevice::reinit(int msaved, double mtime, double msmoo
     else if (msmooth > 0.99)
         msmooth = 0.99;
 
-    max_saved = msaved;
     prev_positions.clear();
-    prev_positions.resize(max_saved);
+    prev_positions.resize(msaved);
     max_time = mtime;
     smoothing = msmooth;
 
@@ -154,13 +153,13 @@ int ExampleDriver::TrackerDevice::get_next_pose(Seconds time_offset, PoseInfo& n
 
     double avg_time = 0;
     double avg_time2 = 0;
-    for (int i = 0; i < max_saved; i++)
+    for (const PrevPose& prev_pose : prev_positions)
     {
-        if (prev_positions[i].time < 0)
+        if (prev_pose.time < 0)
             break;
         curr_saved++;
-        avg_time += prev_positions[i].time;
-        avg_time2 += (prev_positions[i].time * prev_positions[i].time);
+        avg_time += prev_pose.time;
+        avg_time2 += prev_pose.time * prev_pose.time;
     }
 
     if (curr_saved == 0)
@@ -251,7 +250,7 @@ void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double 
 
     //Log("Time: " + std::to_string(time));
 
-    double dist = sqrt(pow(next_pose[0] - a, 2) + pow(next_pose[1] - b, 2) + pow(next_pose[2] - c, 2));
+    double dist = std::sqrt(std::pow(next_pose[0] - a, 2) + std::pow(next_pose[1] - b, 2) + std::pow(next_pose[2] - c, 2));
     if (pose_valid == 0 && dist > 0.5)
     {
         Log("Dropped a pose! its error was " + std::to_string(dist));
@@ -259,7 +258,7 @@ void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double 
         return;
     }
 
-    dist = sqrt(pow(a, 2) + pow(b, 2) + pow(c, 2));
+    dist = std::sqrt(a * a + b * b + c * c);
     if (dist > 10)
     {
         Log("Dropped a pose! Was outside of playspace: " + std::to_string(dist));
@@ -269,32 +268,21 @@ void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double 
     if (time > max_time)
         return;
 
-    if (prev_positions[max_saved - 1].time < time && prev_positions[max_saved - 1].time >= 0)
+    auto first_outdated = std::find_if(prev_positions.begin(), prev_positions.end(), [time](const PrevPose& prev_pose) { return prev_pose.time < 0 || prev_pose.time > time; });
+    if (first_outdated == prev_positions.end()) {
         return;
-
-    int i = 0;
-    while (prev_positions[i].time < time && prev_positions[i].time >= 0)
-        i++;
-
-    for (int j = max_saved - 1; j > i; j--)
-    {
-        if (prev_positions[j - 1].time >= 0)
-        {
-            prev_positions[j] = prev_positions[j - 1];
-        }
-        else
-        {
-            prev_positions[j].time = -1;
-        }
     }
-    prev_positions[i].time = time;
-    prev_positions[i].pose[0] = a;
-    prev_positions[i].pose[1] = b;
-    prev_positions[i].pose[2] = c;
-    prev_positions[i].pose[3] = w;
-    prev_positions[i].pose[4] = x;
-    prev_positions[i].pose[5] = y;
-    prev_positions[i].pose[6] = z;
+
+    std::rotate(first_outdated, std::prev(prev_positions.end()), prev_positions.end());
+    first_outdated->time = time;
+    first_outdated->pose[0] = a;
+    first_outdated->pose[1] = b;
+    first_outdated->pose[2] = c;
+    first_outdated->pose[3] = w;
+    first_outdated->pose[4] = x;
+    first_outdated->pose[5] = y;
+    first_outdated->pose[6] = z;
+
     /*                                                 //for debugging
     Log("------------------------------------------------");
     for (int i = 0; i < max_saved; i++)
