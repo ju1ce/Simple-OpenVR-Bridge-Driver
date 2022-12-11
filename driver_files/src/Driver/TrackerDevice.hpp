@@ -13,6 +13,7 @@
 #include <sstream>
 #include <iostream>
 #include <string>
+#include <mutex>
 
 namespace ExampleDriver {
     class TrackerDevice : public IVRDevice {
@@ -57,6 +58,7 @@ namespace ExampleDriver {
             PoseInfo pose;
         };
 
+        mutable std::mutex pose_mutex;
         std::vector<PrevPose> prev_positions; // koliko cajta nazaj se je naredl, torej min-->max
         std::chrono::system_clock::time_point last_update;
         double max_time = 1;

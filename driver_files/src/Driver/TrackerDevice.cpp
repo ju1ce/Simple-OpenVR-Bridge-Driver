@@ -32,6 +32,8 @@ std::string ExampleDriver::TrackerDevice::GetSerial()
 
 void ExampleDriver::TrackerDevice::reinit(int msaved, double mtime, double msmooth)
 {
+    std::lock_guard guard(pose_mutex);
+
     if (msaved < 5)     //prevent having too few values to calculate linear interpolation, and prevent crash on 0
         msaved = 5;
 
@@ -74,20 +76,14 @@ void ExampleDriver::TrackerDevice::Update()
     normalizeQuat(next_pose);
 
     const bool pose_nan = std::any_of(next_pose.begin(), next_pose.end(), [](double d) { return std::isnan(d); });
-
-    if (smoothing == 0 || pose_nan)
-    {
-        pose.vecPosition[0] = next_pose[0];
-        pose.vecPosition[1] = next_pose[1];
-        pose.vecPosition[2] = next_pose[2];
-
-        pose.qRotation.w = next_pose[3];
-        pose.qRotation.x = next_pose[4];
-        pose.qRotation.y = next_pose[5];
-        pose.qRotation.z = next_pose[6];
+    if (pose_nan) {
+        return;
     }
-    else
+
     {
+        // Guard around uses of |smoothing|
+        std::lock_guard guard(pose_mutex);
+
         pose.vecPosition[0] = next_pose[0] * (1 - smoothing) + pose.vecPosition[0] * smoothing;
         pose.vecPosition[1] = next_pose[1] * (1 - smoothing) + pose.vecPosition[1] * smoothing;
         pose.vecPosition[2] = next_pose[2] * (1 - smoothing) + pose.vecPosition[2] * smoothing;
@@ -97,6 +93,7 @@ void ExampleDriver::TrackerDevice::Update()
         pose.qRotation.y = next_pose[5] * (1 - smoothing) + pose.qRotation.y * smoothing;
         pose.qRotation.z = next_pose[6] * (1 - smoothing) + pose.qRotation.z * smoothing;
     }
+
     //normalize
     double mag = sqrt(pose.qRotation.w * pose.qRotation.w +
         pose.qRotation.x * pose.qRotation.x +
@@ -137,6 +134,8 @@ void ExampleDriver::TrackerDevice::Log(std::string message)
 
 int ExampleDriver::TrackerDevice::get_next_pose(Seconds time_offset, PoseInfo& next_pose) const
 {
+    std::lock_guard guard(pose_mutex);
+
     int statuscode = 0;
 
     const auto time_now = std::chrono::system_clock::now();
@@ -213,6 +212,8 @@ void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double 
         w = -w;
     }
 
+    std::lock_guard guard(pose_mutex);
+
     if (max_time == 0)
     {
         this->last_update = std::chrono::system_clock::now();
@@ -225,7 +226,6 @@ void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double 
         prev_pose.pose[4] = x;
         prev_pose.pose[5] = y;
         prev_pose.pose[6] = z;
-
         return;
     }
 
