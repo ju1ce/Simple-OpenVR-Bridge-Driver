@@ -1,8 +1,9 @@
 #include "TrackerDevice.hpp"
 
-void normalizeQuat(double pose[])
-{
+#include <algorithm>
 
+static void normalizeQuat(ExampleDriver::TrackerDevice::PoseInfo& pose)
+{
     //normalize
     double mag = sqrt(pose[3] * pose[3] +
         pose[4] * pose[4] +
@@ -37,8 +38,8 @@ void ExampleDriver::TrackerDevice::reinit(int msaved, double mtime, double msmoo
         msmooth = 0.99;
 
     max_saved = msaved;
-    std::vector<std::vector<double>> temp(msaved, std::vector<double>(8,-1));
-    prev_positions = temp;
+    prev_positions.clear();
+    prev_positions.resize(max_saved);
     max_time = mtime;
     smoothing = msmooth;
 
@@ -66,18 +67,13 @@ void ExampleDriver::TrackerDevice::Update()
     double previous_position[3] = { 0 };
     std::copy(std::begin(pose.vecPosition), std::end(pose.vecPosition), std::begin(previous_position));
 
-    double next_pose[7];
+    PoseInfo next_pose;
     if (get_next_pose(0, next_pose) != 0)
         return;
 
     normalizeQuat(next_pose);
 
-    bool pose_nan = false;
-    for (int i = 0; i < 7; i++)
-    {
-        if (std::isnan(next_pose[i]))
-            pose_nan = true;
-    }
+    const bool pose_nan = std::any_of(next_pose.begin(), next_pose.end(), [](double d) { return std::isnan(d); });
 
     if (smoothing == 0 || pose_nan)
     {
@@ -139,7 +135,7 @@ void ExampleDriver::TrackerDevice::Log(std::string message)
     vr::VRDriverLog()->Log(message_endl.c_str());
 }
 
-int ExampleDriver::TrackerDevice::get_next_pose(double time_offset, double pred[])
+int ExampleDriver::TrackerDevice::get_next_pose(double time_offset, PoseInfo& next_pose) const
 {
     int statuscode = 0;
 
@@ -163,11 +159,11 @@ int ExampleDriver::TrackerDevice::get_next_pose(double time_offset, double pred[
     double avg_time2 = 0;
     for (int i = 0; i < max_saved; i++)
     {
-        if (prev_positions[i][0] < 0)
+        if (prev_positions[i].time < 0)
             break;
         curr_saved++;
-        avg_time += prev_positions[i][0];
-        avg_time2 += (prev_positions[i][0] * prev_positions[i][0]);
+        avg_time += prev_positions[i].time;
+        avg_time2 += (prev_positions[i].time * prev_positions[i].time);
     }
 
     //Log("saved values: " + std::to_string(curr_saved));
@@ -177,10 +173,7 @@ int ExampleDriver::TrackerDevice::get_next_pose(double time_offset, double pred[
     {
         if (curr_saved > 0)
         {
-            for (int i = 1; i < 8; i++)
-            {
-                pred[i - 1] = prev_positions[0][i];
-            }
+            next_pose = prev_positions.front().pose;
             return statuscode;
         }
         //printf("Too few values");
@@ -196,21 +189,22 @@ int ExampleDriver::TrackerDevice::get_next_pose(double time_offset, double pred[
     double st = 0;
     for (int j = 0; j < curr_saved; j++)
     {
-        st += ((prev_positions[j][0] - avg_time) * (prev_positions[j][0] - avg_time));
+        st += ((prev_positions[j].time - avg_time) * (prev_positions[j].time - avg_time));
     }
     st = sqrt(st * (1.0 / curr_saved));
 
 
-    for (int i = 1; i < 8; i++)
+    for (int i = 0; i < next_pose.size(); i++)
     {
         double avg_val = 0;
         double avg_val2 = 0;
         double avg_tval = 0;
         for (int ii = 0; ii < curr_saved; ii++)
         {
-            avg_val += prev_positions[ii][i];
-            avg_tval += (prev_positions[ii][0] * prev_positions[ii][i]);
-            avg_val2 += (prev_positions[ii][i] * prev_positions[ii][i]);
+            const PrevPose& prev_pose = prev_positions[ii];
+            avg_val += prev_pose.pose[i];
+            avg_tval += (prev_pose.time * prev_pose.pose[i]);
+            avg_val2 += (prev_pose.pose[i] * prev_pose.pose[i]);
         }
         avg_val /= curr_saved;
         avg_tval /= curr_saved;
@@ -221,7 +215,7 @@ int ExampleDriver::TrackerDevice::get_next_pose(double time_offset, double pred[
         double sv = 0;
         for (int j = 0; j < curr_saved; j++)
         {
-            sv += ((prev_positions[j][i] - avg_val) * (prev_positions[j][i] - avg_val));
+            sv += ((prev_positions[j].pose[i] - avg_val) * (prev_positions[j].pose[i] - avg_val));
         }
         sv = sqrt(sv * (1.0 / curr_saved));
 
@@ -238,7 +232,7 @@ int ExampleDriver::TrackerDevice::get_next_pose(double time_offset, double pred[
         if (abs(avg_val2 - (avg_val * avg_val)) < 0.00000001)               //bloody floating point rounding errors
             y = avg_val;
 
-        pred[i - 1] = y;
+        next_pose[i] = y;
         //printf("<<<< %f --> %f\n",y, pred[i-1]);
 
 
@@ -250,7 +244,7 @@ int ExampleDriver::TrackerDevice::get_next_pose(double time_offset, double pred[
 
 void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double c, double w, double x, double y, double z, double time_offset)
 {
-    double next_pose[7];
+    PoseInfo next_pose;
     int pose_valid = get_next_pose(time_offset, next_pose);
 
     double dot = x * next_pose[4] + y * next_pose[5] + z * next_pose[6] + w * next_pose[3];
@@ -269,14 +263,15 @@ void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double 
         double time_since_epoch_seconds = time_since_epoch.count() / 1000.0;
         double curr_time = time_since_epoch_seconds;
         this->last_update = curr_time;
-        prev_positions[0][0] = time_offset;
-        prev_positions[0][1] = a;
-        prev_positions[0][2] = b;
-        prev_positions[0][3] = c;
-        prev_positions[0][4] = w;
-        prev_positions[0][5] = x;
-        prev_positions[0][6] = y;
-        prev_positions[0][7] = z;
+        PrevPose& prev_pose = prev_positions.front();
+        prev_pose.time = time_offset;
+        prev_pose.pose[0] = a;
+        prev_pose.pose[1] = b;
+        prev_pose.pose[2] = c;
+        prev_pose.pose[3] = w;
+        prev_pose.pose[4] = x;
+        prev_pose.pose[5] = y;
+        prev_pose.pose[6] = z;
 
         return;
     }
@@ -292,12 +287,13 @@ void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double 
     double time_since_update = curr_time - this->last_update;
     this->last_update = curr_time;
 
-    for (int i = 0; i < max_saved; i++)
+    for (PrevPose& prev_pose : prev_positions)
     {
-        if (prev_positions[i][0] >= 0)
-            prev_positions[i][0] += time_since_update;
-        if (prev_positions[i][0] > max_time)
-            prev_positions[i][0] = -1;
+        double& prev_time = prev_pose.time;
+        if (prev_time >= 0)
+            prev_time += time_since_update;
+        if (prev_time > max_time)
+            prev_time = -1;
     }
 
     double time = time_offset;
@@ -325,35 +321,32 @@ void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double 
     if (time > max_time)
         return;
 
-    if (prev_positions[max_saved - 1][0] < time && prev_positions[max_saved - 1][0] >= 0)
+    if (prev_positions[max_saved - 1].time < time && prev_positions[max_saved - 1].time >= 0)
         return;
 
     int i = 0;
-    while (prev_positions[i][0] < time&& prev_positions[i][0] >= 0)
+    while (prev_positions[i].time < time && prev_positions[i].time >= 0)
         i++;
 
     for (int j = max_saved - 1; j > i; j--)
     {
-        if (prev_positions[j - 1][0] >= 0)
+        if (prev_positions[j - 1].time >= 0)
         {
-            for (int k = 0; k < 8; k++)
-            {
-                prev_positions[j][k] = prev_positions[j - 1][k];
-            }
+            prev_positions[j] = prev_positions[j - 1];
         }
         else
         {
-            prev_positions[j][0] = -1;
+            prev_positions[j].time = -1;
         }
     }
-    prev_positions[i][0] = time;
-    prev_positions[i][1] = a;
-    prev_positions[i][2] = b;
-    prev_positions[i][3] = c;
-    prev_positions[i][4] = w;
-    prev_positions[i][5] = x;
-    prev_positions[i][6] = y;
-    prev_positions[i][7] = z;
+    prev_positions[i].time = time;
+    prev_positions[i].pose[0] = a;
+    prev_positions[i].pose[1] = b;
+    prev_positions[i].pose[2] = c;
+    prev_positions[i].pose[3] = w;
+    prev_positions[i].pose[4] = x;
+    prev_positions[i].pose[5] = y;
+    prev_positions[i].pose[6] = z;
     /*                                                 //for debugging
     Log("------------------------------------------------");
     for (int i = 0; i < max_saved; i++)

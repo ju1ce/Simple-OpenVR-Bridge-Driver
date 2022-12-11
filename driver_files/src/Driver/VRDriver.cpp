@@ -237,7 +237,7 @@ void ExampleDriver::VRDriver::PipeThread()
                     {
                         s = s + " trackerpose " + std::to_string(idx);
 
-                        double pose[7];
+                        TrackerDevice::PoseInfo pose;
                         int statuscode = this->trackers_[idx]->get_next_pose(time_offset, pose);
 
                         s = s + " " + std::to_string(pose[0]) +
