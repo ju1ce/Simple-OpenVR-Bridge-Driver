@@ -50,11 +50,8 @@ void ExampleDriver::VRDriver::PipeThread()
         //we go and read it into our buffer
         if (ipcConnection.recv(buffer, sizeof(buffer)))
         {
-            //MessageBoxA(NULL, "connected2", "Example Driver", MB_OK);
             //convert our buffer to string
-
-            //MessageBoxA(NULL, buffer, "Example Driver", MB_OK);
-
+            buffer[sizeof(buffer) - 1] = '\0';
             std::string rec = buffer;
 
             //Log("Received message: " + rec);

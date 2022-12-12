@@ -47,7 +47,7 @@ void ExampleDriver::TrackerDevice::reinit(int msaved, double mtime, double msmoo
     max_time = mtime;
     smoothing = msmooth;
 
-    //Log("Settings changed! " + std::to_string(msaved) + " " + std::to_string(mtime));
+    Log("Settings changed! " + std::to_string(msaved) + ' ' + std::to_string(mtime) + ' ' + std::to_string(msmooth));
 }
 
 void ExampleDriver::TrackerDevice::Update()
@@ -77,6 +77,7 @@ void ExampleDriver::TrackerDevice::Update()
 
     const bool pose_nan = std::any_of(next_pose.begin(), next_pose.end(), [](double d) { return std::isnan(d); });
     if (pose_nan) {
+        Log("Not submitting pose! NaNs were seen");
         return;
     }
 
@@ -265,11 +266,14 @@ void ExampleDriver::TrackerDevice::save_current_pose(double a, double b, double 
         return;
     }
 
-    if (time > max_time)
+    if (time > max_time) {
+        Log("Dropped a pose! It was too old");
         return;
+    }
 
     auto first_outdated = std::find_if(prev_positions.begin(), prev_positions.end(), [time](const PrevPose& prev_pose) { return prev_pose.time < 0 || prev_pose.time > time; });
     if (first_outdated == prev_positions.end()) {
+        Log("Dropped a pose! All previous poses are newer");
         return;
     }
 
