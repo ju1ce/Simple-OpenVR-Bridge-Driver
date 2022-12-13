@@ -115,7 +115,7 @@ void ExampleDriver::VRDriver::PipeThread()
                 }
                 else if (word == "addstation")
                 {
-                    auto addstation = std::make_shared<TrackingReferenceDevice>("AprilCamera" + std::to_string(this->devices_.size()));
+                    auto addstation = std::make_shared<TrackingReferenceDevice>("AprilCamera" + std::to_string(this->stations_.size()));
                     this->AddDevice(addstation);
                     this->stations_.push_back(addstation);
                     s = s + " added";
@@ -173,7 +173,7 @@ void ExampleDriver::VRDriver::PipeThread()
                     double a, b, c, time, smoothing;
                     iss >> idx; iss >> a; iss >> b; iss >> c; iss >> time; iss >> smoothing;
 
-                    if (idx < this->devices_.size())
+                    if (idx < this->trackers_.size())
                     {
                         this->trackers_[idx]->UpdatePos(a, b, c, time, smoothing);
                         this->trackers_[idx]->Update();
@@ -191,7 +191,7 @@ void ExampleDriver::VRDriver::PipeThread()
                     double qw, qx, qy, qz, time, smoothing;
                     iss >> qw; iss >> qx; iss >> qy; iss >> qz; iss >> time; iss >> smoothing;
 
-                    if (idx < this->devices_.size())
+                    if (idx < this->trackers_.size())
                     {
                         this->trackers_[idx]->UpdateRot(qw, qx, qy, qz, time, smoothing);
                         this->trackers_[idx]->Update();
@@ -230,7 +230,7 @@ void ExampleDriver::VRDriver::PipeThread()
                     iss >> idx;
                     iss >> time_offset;
 
-                    if (idx < this->devices_.size())
+                    if (idx < this->trackers_.size())
                     {
                         s = s + " trackerpose " + std::to_string(idx);
 
@@ -315,7 +315,7 @@ void ExampleDriver::VRDriver::RunFrame()
     this->frame_timing_avg_ = this->frame_timing_avg_ * 0.9 + ((double)this->frame_timing_.count()) * 0.1;
     //MessageBox(NULL, std::to_string(((double)this->frame_timing_.count()) * 0.1).c_str(), "Example Driver", MB_OK);
 
-    for (auto& device : this->trackers_)
+    for (auto& device : this->devices_)
         device->Update();
 
 }
