@@ -13,7 +13,7 @@ void* HmdDriverFactory(const char* interface_name, int* return_code) {
 			driver = std::make_shared<ExampleDriver::VRDriver>();
 		}
 		// We always have at least 1 ref to the shared ptr in "driver" so passing out raw pointer is ok
-		return driver.get();
+		return static_cast<vr::IServerTrackedDeviceProvider*>(driver.get());
 	}
 
 	if (return_code)

@@ -18,8 +18,8 @@ namespace Ipc {
             Connection& operator=(Connection const &) = delete;
 
             // Moving is allowed
-            Connection(Connection &&) = default;
-            Connection& operator=(Connection &&) = default;
+            Connection(Connection &&) noexcept;
+            Connection& operator=(Connection &&) noexcept;
 
             bool send(const char *buffer, size_t length);
             bool recv(char *buffer, size_t length);

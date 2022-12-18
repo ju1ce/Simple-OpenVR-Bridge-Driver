@@ -50,11 +50,8 @@ void ExampleDriver::VRDriver::PipeThread()
         //we go and read it into our buffer
         if (ipcConnection.recv(buffer, sizeof(buffer)))
         {
-            //MessageBoxA(NULL, "connected2", "Example Driver", MB_OK);
             //convert our buffer to string
-
-            //MessageBoxA(NULL, buffer, "Example Driver", MB_OK);
-
+            buffer[sizeof(buffer) - 1] = '\0';
             std::string rec = buffer;
 
             //Log("Received message: " + rec);
@@ -118,7 +115,7 @@ void ExampleDriver::VRDriver::PipeThread()
                 }
                 else if (word == "addstation")
                 {
-                    auto addstation = std::make_shared<TrackingReferenceDevice>("AprilCamera" + std::to_string(this->devices_.size()));
+                    auto addstation = std::make_shared<TrackingReferenceDevice>("AprilCamera" + std::to_string(this->stations_.size()));
                     this->AddDevice(addstation);
                     this->stations_.push_back(addstation);
                     s = s + " added";
@@ -156,7 +153,7 @@ void ExampleDriver::VRDriver::PipeThread()
                     {
                         if(time < 0)
                             time = -time;
-                        this->trackers_[idx]->save_current_pose(a, b, c, qw, qx, qy, qz, time);
+                        this->trackers_[idx]->save_current_pose(a, b, c, qw, qx, qy, qz, TrackerDevice::Seconds(time));
                         //this->trackers_[idx]->UpdatePos(a, b, c, time, 1-smoothing);
                         //this->trackers_[idx]->UpdateRot(qw, qx, qy, qz, time, 1-smoothing);
 
@@ -176,7 +173,7 @@ void ExampleDriver::VRDriver::PipeThread()
                     double a, b, c, time, smoothing;
                     iss >> idx; iss >> a; iss >> b; iss >> c; iss >> time; iss >> smoothing;
 
-                    if (idx < this->devices_.size())
+                    if (idx < this->trackers_.size())
                     {
                         this->trackers_[idx]->UpdatePos(a, b, c, time, smoothing);
                         this->trackers_[idx]->Update();
@@ -194,7 +191,7 @@ void ExampleDriver::VRDriver::PipeThread()
                     double qw, qx, qy, qz, time, smoothing;
                     iss >> qw; iss >> qx; iss >> qy; iss >> qz; iss >> time; iss >> smoothing;
 
-                    if (idx < this->devices_.size())
+                    if (idx < this->trackers_.size())
                     {
                         this->trackers_[idx]->UpdateRot(qw, qx, qy, qz, time, smoothing);
                         this->trackers_[idx]->Update();
@@ -233,12 +230,12 @@ void ExampleDriver::VRDriver::PipeThread()
                     iss >> idx;
                     iss >> time_offset;
 
-                    if (idx < this->devices_.size())
+                    if (idx < this->trackers_.size())
                     {
                         s = s + " trackerpose " + std::to_string(idx);
 
-                        double pose[7];
-                        int statuscode = this->trackers_[idx]->get_next_pose(time_offset, pose);
+                        TrackerDevice::PoseInfo pose;
+                        int statuscode = this->trackers_[idx]->get_next_pose(TrackerDevice::Seconds(time_offset), pose);
 
                         s = s + " " + std::to_string(pose[0]) +
                             " " + std::to_string(pose[1]) +
@@ -318,7 +315,7 @@ void ExampleDriver::VRDriver::RunFrame()
     this->frame_timing_avg_ = this->frame_timing_avg_ * 0.9 + ((double)this->frame_timing_.count()) * 0.1;
     //MessageBox(NULL, std::to_string(((double)this->frame_timing_.count()) * 0.1).c_str(), "Example Driver", MB_OK);
 
-    for (auto& device : this->trackers_)
+    for (auto& device : this->devices_)
         device->Update();
 
 }

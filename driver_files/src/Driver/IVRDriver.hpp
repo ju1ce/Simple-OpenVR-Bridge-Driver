@@ -9,7 +9,7 @@ namespace ExampleDriver {
 
     typedef std::variant<std::monostate, std::string, int, float, bool> SettingsValue;
 
-    class IVRDriver : protected vr::IServerTrackedDeviceProvider {
+    class IVRDriver : public vr::IServerTrackedDeviceProvider {
     public:
 
         /// <summary>

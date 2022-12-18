@@ -31,8 +31,8 @@ namespace Key {
         }
 #else
         (void)key;
-        return false;
 #endif
+        return false;
     }
 
 }; // namespace Key
