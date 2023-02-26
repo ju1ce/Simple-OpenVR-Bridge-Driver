@@ -1,5 +1,7 @@
 #include "TrackerDevice.hpp"
 
+#define EPSILON 1.e-6
+
 void normalizeQuat(double pose[])
 {
 
@@ -9,10 +11,13 @@ void normalizeQuat(double pose[])
         pose[5] * pose[5] +
         pose[6] * pose[6]);
 
-    pose[3] /= mag;
-    pose[4] /= mag;
-    pose[5] /= mag;
-    pose[6] /= mag;
+    if (mag > EPSILON)
+    {
+        pose[3] /= mag;
+        pose[4] /= mag;
+        pose[5] /= mag;
+        pose[6] /= mag;
+    }
 }
 
 ExampleDriver::TrackerDevice::TrackerDevice(std::string serial, std::string role):
@@ -267,6 +272,7 @@ int ExampleDriver::TrackerDevice::get_next_pose(double time_offset, double pred[
 
 
     }
+    normalizeQuat(pred);
     //printf("::: %f\n", pred[0]);
     return statuscode;
     //return pred[0], pred[1], pred[2], pred[3], pred[4], pred[5], pred[6];
